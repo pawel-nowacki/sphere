@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>DE single page animation</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+</head>
+
+<body>
+	<script type="module">
+		import * as THREE from './three.module.js';
+
+		import { OrbitControls } from './OrbitControls.js';
+		import { BufferGeometryUtils } from './BufferGeometryUtils.js';
+
+		let group, camera, scene, renderer;
+
+		init();
+		animate();
+		function rnd(max = 1, min = 0, pow = 1) {
+			const rnd = (pow === 1) ?
+				Math.random() :
+				Math.pow(Math.random(), pow);
+
+			return (max - min) * rnd + min;
+		}
+
+		function init() {
+
+			scene = new THREE.Scene();
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			document.body.appendChild(renderer.domElement);
+			scene.fog = new THREE.Fog(0x00274e, 31, 58);
+			// camera
+
+			camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+			camera.position.set(15, 20, 30);
+			scene.add(camera);
+			renderer.setClearColor(0x00274e);
+			//scene.fog = new THREE.Fog(0xd4d4d4, 8, 20);
+			camera.position.z = 28;
+			// controls
+
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.minDistance = -100;
+			controls.maxDistance = 100;
+			controls.maxPolarAngle = Math.PI / 2;
+
+			// ambient light
+
+			//scene.add( new THREE.AmbientLight( 0x222222 ) );
+
+			// point light
+
+			const light = new THREE.PointLight(0xffffff, 1);
+			//camera.add( light );
+
+			// helper
+
+			//scene.add( new THREE.AxesHelper( 20 ) );
+
+			// textures
+
+			const loader = new THREE.TextureLoader();
+			const texture = loader.load('textures/sprites/disc.png');
+
+			group = new THREE.Group();
+			scene.add(group);
+
+			// points
+
+			//let dodecahedronGeometry = new THREE.DodecahedronGeometry( 10 );
+			let dodecahedronGeometry = new THREE.IcosahedronGeometry(20, 8);
+
+			dodecahedronGeometry.deleteAttribute('normal');
+			dodecahedronGeometry.deleteAttribute('uv');
+
+			dodecahedronGeometry = BufferGeometryUtils.mergeVertices(dodecahedronGeometry);
+
+			const vertices = [];
+
+			const positionAttribute = dodecahedronGeometry.getAttribute('position');
+			let verticesArray = new ArrayBuffer(positionAttribute.length);
+			var noise = randomRange(1, 2);
+			var spherical = new THREE.Spherical();
+			for (let i = 0; i < positionAttribute.count; i++) {
+				const variation = 15 * Math.PI / 180;
+				const vertex = new THREE.Vector3();
+				vertex.fromBufferAttribute(positionAttribute, i);
+				spherical.setFromVector3(vertex);
+				spherical.phi += rnd(0, -0.09);
+				spherical.theta += rnd(0, -0.2);
+				vertex.setFromSpherical(spherical);
+
+				//vertex.x += -noise/2 + Math.random()*noise;
+				//vertex.y += -noise/2 + Math.random()*noise;
+				//vertex.z += -noise/2 + Math.random()*noise;
+
+				vertices.push(vertex);
+				//verticesArray[i] = vertex;
+				let specialArray = [];
+				vertex.toArray(specialArray)
+				verticesArray[i] = specialArray;
+			}
+
+			//dodecahedronGeometry.setAttribute( 'position', new THREE.BufferAttribute( verticesArray, 3 ) );
+			dodecahedronGeometry.setFromPoints(vertices);
+
+			const pointsMaterial = new THREE.PointsMaterial({
+
+				size: 0.8,
+				map: texture,
+				//vertexColors: THREE.VertexColors,
+				color: 0xffffff,
+				alphaTest: 1,
+				sizeAttenuation: true,
+				transparent: true,
+				emissive: 0xffffff,
+				blending: THREE.AdditiveBlending,
+				side: THREE.FrontSide
+			});
+
+			const pointsGeometry = new THREE.BufferGeometry().setFromPoints(vertices);
+
+			const points = new THREE.Points(pointsGeometry, pointsMaterial);
+			group.add(points);
+
+			// convex hull
+
+			const meshMaterial = new THREE.MeshLambertMaterial({
+				color: 0x4080ff,
+				opacity: 0.01,
+				transparent: true
+			});
+
+			let geo = new THREE.WireframeGeometry(dodecahedronGeometry);
+			//let geo = new THREE.EdgesGeometry( dodecahedronGeometry );
+			let matLineBasic = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+
+			let wireframe1 = new THREE.LineSegments(geo, matLineBasic);
+			wireframe1.computeLineDistances();
+			//wireframe1.visible = false;
+			group.add(wireframe1);
+
+			window.addEventListener('resize', onWindowResize);
+			renderer.render(scene, camera);
+		}
+
+		function randomRange(min, max) {
+			return Math.floor(Math.random() * (max - min + 1) + min);
+		}
+
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		}
+
+		function animate() {
+			requestAnimationFrame(animate);
+			group.rotation.y += 0.003;
+			render();
+		}
+
+		function render() {
+			renderer.render(scene, camera);
+		}
+
+	</script>
+
+</body>
+
+</html>
